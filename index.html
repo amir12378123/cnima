@@ -1,1 +1,157 @@
 
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pars Cinema</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: #000; 
+            color: white; 
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        #video-player { 
+            width: 100vw; 
+            height: 100vh; 
+            background: black;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.8);
+            padding: 15px;
+            border-radius: 10px;
+            display: none;
+            z-index: 1000;
+        }
+        .controls input, .controls button {
+            padding: 8px;
+            margin: 5px;
+            border-radius: 5px;
+        }
+        .volume-slider {
+            width: 100px;
+        }
+    </style>
+</head>
+<body>
+    <div id="video-player"></div>
+    
+    <div class="controls" id="controls">
+        <input type="text" id="videoUrl" placeholder="Enter YouTube/Vimeo URL">
+        <button onclick="playVideo()">Play</button>
+        <button onclick="pauseVideo()">Pause</button>
+        <input type="range" class="volume-slider" id="volume" min="0" max="1" step="0.1" value="1">
+    </div>
+
+    <script>
+        // NUI Callbacks for FiveM
+        window.addEventListener('message', function(event) {
+            var data = event.data;
+            
+            if (data.action === "add") {
+                // Add video to screen
+                document.getElementById('controls').style.display = 'block';
+                loadVideo(data.url, data.id);
+            }
+            else if (data.action === "pause") {
+                // Pause video
+                document.getElementById('video-player').innerHTML = '';
+                document.getElementById('controls').style.display = 'none';
+            }
+            else if (data.action === "update") {
+                // Update distance/volume info
+                updateScreens(data.list);
+            }
+            else if (data.action === "setting") {
+                // Apply settings
+                console.log("Settings applied");
+            }
+            else if (data.action === "remove") {
+                // Remove screen
+                document.getElementById('video-player').innerHTML = '';
+                document.getElementById('controls').style.display = 'none';
+            }
+            else if (data.action === "hide") {
+                // Hide interface
+                document.getElementById('controls').style.display = 'none';
+            }
+        });
+
+        function loadVideo(url, screenId) {
+            var player = document.getElementById('video-player');
+            
+            if (url.includes('youtube.com') || url.includes('youtu.be')) {
+                // Extract YouTube ID
+                var videoId = url.split('v=')[1];
+                if (url.includes('youtu.be')) {
+                    videoId = url.split('/').pop();
+                }
+                var ampersandPosition = videoId.indexOf('&');
+                if(ampersandPosition != -1) {
+                    videoId = videoId.substring(0, ampersandPosition);
+                }
+                
+                player.innerHTML = '<iframe src="https://www.youtube.com/embed/' + videoId + '?autoplay=1&enablejsapi=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>';
+            }
+            else if (url.includes('vimeo.com')) {
+                var vimeoId = url.split('/').pop();
+                player.innerHTML = '<iframe src="https://player.vimeo.com/video/' + vimeoId + '?autoplay=1" allow="autoplay; fullscreen" allowfullscreen></iframe>';
+            }
+            else {
+                // Direct video file
+                player.innerHTML = '<video src="' + url + '" autoplay controls style="width:100%;height:100%"></video>';
+            }
+            
+            // Send loaded confirmation back to FiveM
+            fetch('https://' + GetParentResourceName() + '/loaded', {
+                method: 'POST',
+                body: JSON.stringify({id: screenId})
+            });
+        }
+
+        function playVideo() {
+            var url = document.getElementById('videoUrl').value;
+            if (url) {
+                fetch('https://' + GetParentResourceName() + '/play', {
+                    method: 'POST',
+                    body: JSON.stringify({url: url})
+                });
+            }
+        }
+
+        function pauseVideo() {
+            fetch('https://' + GetParentResourceName() + '/pause', {
+                method: 'POST'
+            });
+        }
+
+        // Volume control
+        document.getElementById('volume').addEventListener('input', function(e) {
+            fetch('https://' + GetParentResourceName() + '/changeVolume', {
+                method: 'POST',
+                body: JSON.stringify({volume: e.target.value})
+            });
+        });
+
+        function updateScreens(screens) {
+            // Handle multiple screens distance/volume
+            console.log("Screens updated:", screens);
+        }
+
+        // Get resource name helper
+        function GetParentResourceName() {
+            return 'Pars_cinema';
+        }
+    </script>
+</body>
+</html>
